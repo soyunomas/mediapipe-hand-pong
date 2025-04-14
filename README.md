@@ -1,7 +1,6 @@
 # 🎮 Mediapipe Hand Pong
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Demo - Jugar Ahora](https://img.shields.io/badge/Demo-Jugar_Ahora-brightgreen)](https://soyunomas.github.io/mediapipe-hand-pong/index.html) <!-- Asegúrate que el archivo principal se llame index.html -->
-
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Demo - Jugar Ahora](https://img.shields.io/badge/Demo-Jugar_Ahora-brightgreen)](https://soyunomas.github.io/mediapipe-hand-pong/index.html) 
 Un juego interactivo tipo Pong controlado por gestos de la mano utilizando la cámara web y MediaPipe Pose. 🖐️↔️🎾
 
 ## 📝 Descripción Breve
@@ -40,7 +39,7 @@ Puedes probar la demo en vivo aquí:
 
 ## 🚀 Instalación / Visualización Local
 
-**IMPORTANTE:** Debido a las restricciones de seguridad del navegador (`CORS`, `file://`) y la necesidad de acceder a la cámara (`getUserMedia`), este proyecto **NO funcionará correctamente si abres el archivo HTML directamente desde tu sistema de archivos**. Necesitas servirlo a través de un servidor web local (HTTP/HTTPS).
+**IMPORTANTE:** Debido a las restricciones de seguridad del navegador (`CORS`, `file://`) y la necesidad de acceder a la cámara (`getUserMedia`), este proyecto **PUEDE QUE NO funcionare correctamente si abres el archivo HTML directamente desde tu sistema de archivos**. Podrás necesitar servirlo a través de un servidor web local (HTTP/HTTPS).
 
 1.  **Clona el repositorio:**
     ```bash
