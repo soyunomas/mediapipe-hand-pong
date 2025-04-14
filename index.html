@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="dark"> <!-- Habilitar modo oscuro Bootstrap -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hand Pong v4.1 - Final Fix</title> <!-- Versión actualizada -->
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+
+    <style>
+        body {
+            padding-top: 1rem; padding-bottom: 1rem; overflow-x: hidden;
+        }
+        #info {
+             position: fixed; bottom: 5px; left: 5px; font-size: 0.7rem; color: var(--bs-secondary-color); z-index: 20;
+        }
+        .game-area-wrapper {
+             width: 100%; max-width: 1200px; margin-left: auto; margin-right: auto;
+        }
+        #gameContainer {
+            position: relative; height: 480px; border: 2px solid #eee;
+            background-color: #198754; /* Verde oscuro */
+            overflow: hidden; margin-bottom: 1rem; width: 100%;
+        }
+        canvas#output_canvas {
+            display: block; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 5; background-color: transparent;
+        }
+        video#input_video {
+            display: block; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            transform: scaleX(-1); -webkit-transform: scaleX(-1);
+            object-fit: cover; opacity: 0; pointer-events: none; z-index: 1;
+        }
+        #webcam-preview-container {
+            width: 100%; max-width: 180px; height: 135px;
+            border: 1px solid var(--bs-border-color); z-index: 15;
+            overflow: hidden; background-color: #333; margin-left: auto;
+            margin-right: auto; display: block;
+        }
+        canvas#webcam_preview_canvas { display: block; width: 100%; height: 100%; /* Espejado quitado, se hace en JS */ }
+        #score-display {
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7); padding: 8px 15px; border-radius: 5px;
+            z-index: 10; font-size: 1.3em; font-weight: bold; text-align: center; min-width: 150px;
+            color: #fff;
+        }
+        #status {
+             position: relative; margin-top: 0.75rem; margin-bottom: 0.75rem; width: 90%;
+             max-width: 640px; background-color: var(--bs-secondary-bg);
+             color: var(--bs-body-color); padding: 8px 15px; border-radius: 5px; z-index: 10;
+             font-size: 1.1em; font-weight: bold; text-align: center;
+             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+             margin-left: auto; margin-right: auto;
+        }
+        .goal-visual { position: absolute; width: 8px; background-color: #FFD700; z-index: 3; box-shadow: 1px 1px 3px rgba(0,0,0,0.5); }
+        .goal-visual.right { right: 0; }
+        .goal-visual.top-post { top: 30%; height: 6px; width: 100%; }
+        .goal-visual.bottom-post { bottom: 30%; height: 6px; width: 100%; }
+        .goal-visual-container { position: absolute; left: 0; width: 8px; height: 100%; top: 0; z-index: 3; }
+        .goal-visual-container.right { left: auto; right: 0; }
+        .center-line { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 2px; height: 100%; background-color: rgba(255, 255, 255, 0.2); z-index: 1; }
+        .controls { text-align: center; }
+        .loading { display: flex; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(33, 37, 41, 0.95); z-index: 1000; font-size: 1.5rem; color: #dee2e6; }
+    </style>
+    <!-- MediaPipe -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+</head>
+<body>
+    <div class="container-fluid game-area-wrapper">
+        <div class="row align-items-start">
+            <div class="col-lg-8 col-md-7 order-md-1 order-1">
+                <div id="gameContainer">
+                    <div class="center-line"></div>
+                    <div class="goal-visual-container left"> <div class="goal-visual left top-post"></div> <div class="goal-visual left bottom-post"></div> </div>
+                    <div class="goal-visual-container right"> <div class="goal-visual right top-post"></div> <div class="goal-visual right bottom-post"></div> </div>
+                    <video id="input_video" autoplay playsinline muted></video>
+                    <canvas id="output_canvas" width="640" height="480"></canvas>
+                    <div id="score-display">Jugador 0 - 0 CPU</div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-5 order-md-2 order-2 mt-3 mt-md-0">
+                 <div id="webcam-preview-container">
+                    <canvas id="webcam_preview_canvas"></canvas>
+                 </div>
+            </div>
+        </div>
+         <div class="row"> <div class="col-12"> <div id="status">Iniciando...</div> </div> </div>
+         <div class="row"> <div class="col-12 controls"> <button id="restart-btn" class="btn btn-secondary">Reiniciar Juego</button> </div> </div>
+    </div>
+    <div id="info">Hand Pong v4.1</div>
+    <div class="loading" id="loading-indicator">Cargando modelo y cámara...</div>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+
+    <script>
+        // --- Constantes y Variables Globales ---
+        const videoElement = document.getElementById('input_video');
+        const canvasElement = document.getElementById('output_canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const webcamPreviewCanvas = document.getElementById('webcam_preview_canvas');
+        const webcamPreviewCtx = webcamPreviewCanvas.getContext('2d');
+        const statusElement = document.getElementById('status');
+        const scoreDisplayElement = document.getElementById('score-display');
+        const gameContainer = document.getElementById('gameContainer');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const restartBtn = document.getElementById('restart-btn');
+
+        let gameWidth = 640; let gameHeight = 480;
+        let previewWidth = 180; let previewHeight = 135;
+        webcamPreviewCanvas.width = previewWidth * window.devicePixelRatio;
+        webcamPreviewCanvas.height = previewHeight * window.devicePixelRatio;
+        webcamPreviewCanvas.style.width = `${previewWidth}px`;
+        webcamPreviewCanvas.style.height = `${previewHeight}px`;
+        webcamPreviewCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+        let gameRunning = false; let handDetected = false; let animationFrameIdGame = null;
+        let poseLandmarksData = null; let playerScore = 0; let opponentScore = 0;
+        const WINNING_SCORE = 10;
+
+        // Velocidad Progresiva
+        const INITIAL_BALL_SPEED = 4.0; const BALL_SPEED_INCREMENT = 0.3;
+        const SPEED_INCREASE_INTERVAL = 2000; const MAX_BALL_SPEED = 15;
+        let lastSpeedIncreaseTime = 0;
+
+        // Objetos del Juego
+        const paddle = { x: 0, y: 0, width: 15, height: 100, color: '#00aaff' };
+        const ball = { x: 0, y: 0, radius: 10, speed: INITIAL_BALL_SPEED, velocityX: 0, velocityY: 0, color: '#ffaa00' };
+        const GOAL_TOP_Y_PERCENT = 0.30; const GOAL_HEIGHT_PERCENT = 0.40;
+        let goalTopY = 0; let goalHeight = 0;
+
+        // *** CORRECCIÓN: Añadir constantes para preview ***
+        const PREVIEW_PADDLE_WIDTH = 5;
+        const PREVIEW_PADDLE_HEIGHT = 40;
+
+        // --- Funciones MediaPipe ---
+        function onResults(results) { /* ... (Sin Cambios) */ loadingIndicator.style.display = 'none'; if (!gameRunning && videoElement.videoWidth > 0) { startGameOnceReady(); } poseLandmarksData = results.poseLandmarks; if(gameRunning) { updatePaddlePosition(); } drawWebcamPreview(); }
+        function drawWebcamPreview() {
+            webcamPreviewCtx.clearRect(0, 0, webcamPreviewCanvas.width, webcamPreviewCanvas.height);
+            webcamPreviewCtx.save();
+             webcamPreviewCtx.scale(-1, 1); // Espejar contexto
+             webcamPreviewCtx.translate(-previewWidth, 0);
+             webcamPreviewCtx.drawImage(videoElement, 0, 0, previewWidth, previewHeight); // Dibujar video (saldrá espejado)
+             webcamPreviewCtx.restore(); // Restaurar para dibujar pala sin espejo
+
+            if (poseLandmarksData && handDetected) {
+                const rightWrist = poseLandmarksData[16];
+                if (rightWrist && rightWrist.visibility > 0.4) {
+                    const previewX_norm = rightWrist.x; const previewY_norm = rightWrist.y;
+                    // Usar las constantes AÑADIDAS
+                    const paddleDrawY = previewY_norm * previewHeight - (PREVIEW_PADDLE_HEIGHT / 2);
+                    const paddleDrawX = previewWidth - PREVIEW_PADDLE_WIDTH - 5; // Cerca borde derecho
+
+                    webcamPreviewCtx.fillStyle = paddle.color;
+                    webcamPreviewCtx.fillRect(paddleDrawX, paddleDrawY, PREVIEW_PADDLE_WIDTH, PREVIEW_PADDLE_HEIGHT);
+                }
+            }
+        }
+        function updatePaddlePosition() { /* ... (Sin Cambios) */ let handVisible = false; if (poseLandmarksData) { const rightWrist = poseLandmarksData[16]; if (rightWrist && rightWrist.visibility > 0.4) { handVisible = true; const wristY = rightWrist.y; paddle.y = wristY * gameHeight - paddle.height / 2; paddle.y = Math.max(0, Math.min(gameHeight - paddle.height, paddle.y)); } } handDetected = handVisible; }
+        const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
+        pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, enableSegmentation: false, smoothSegmentation: false, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+        pose.onResults(onResults);
+        const requestedCamWidth = 640; const requestedCamHeight = 480;
+        const camera = new Camera(videoElement, { onFrame: async () => { await pose.send({image: videoElement}); }, width: requestedCamWidth, height: requestedCamHeight });
+
+        // --- Funciones del Juego ---
+        function updateScoreDisplay() { /* ... (Sin Cambios) */ scoreDisplayElement.textContent = `Jugador ${playerScore} - ${opponentScore} CPU`; }
+        function resetBall(lastWinner = null) { /* ... (Sin Cambios) */ ball.x = gameWidth / 2; ball.y = gameHeight / 2; let angle = (Math.random() - 0.5) * Math.PI / 2; let direction = 1; if(lastWinner === 'player'){ direction = 1; } else if (lastWinner === 'opponent'){ direction = -1; } else { direction = (Math.random() < 0.5) ? 1 : -1; } ball.velocityX = direction * ball.speed * Math.cos(angle); ball.velocityY = ball.speed * Math.sin(angle); if(Math.abs(ball.velocityX) < 1) ball.velocityX = direction * ball.speed * 0.7; if(Math.abs(ball.velocityY) < 1) ball.velocityY = (Math.random() - 0.5) * ball.speed; if (gameRunning) { statusElement.textContent = handDetected ? '¡Sigue jugando!' : 'Mueve tu mano derecha'; } }
+        function handleGoal(winner) { /* ... (Sin Cambios) */ ball.velocityX = 0; ball.velocityY = 0; if (winner === 'player') { playerScore++; statusElement.textContent = '¡GOOOOL!'; ball.x = ball.radius + 5; } else { opponentScore++; statusElement.textContent = '¡Gol CPU!'; ball.x = gameWidth - ball.radius - 5; } updateScoreDisplay(); if (playerScore >= WINNING_SCORE || opponentScore >= WINNING_SCORE) { gameOver(); } else { setTimeout(() => resetBall(winner), 1000); } }
+        function gameOver() { /* ... (Sin Cambios) */ gameRunning = false; let message = ""; if (playerScore >= WINNING_SCORE) { message = `¡GANASTE ${playerScore} - ${opponentScore}!`; } else { message = `Perdiste ${playerScore} - ${opponentScore}`; } statusElement.textContent = message + " (Click en Reiniciar)"; }
+        function restartGame() { /* ... (Sin Cambios) */ console.log("Reiniciando juego..."); playerScore = 0; opponentScore = 0; ball.speed = INITIAL_BALL_SPEED; lastSpeedIncreaseTime = performance.now(); updateScoreDisplay(); if (!gameRunning) { if (videoElement.srcObject && videoElement.srcObject.active === false) { camera.start().catch(err => console.error("Error reiniciando cámara:", err)); } statusElement.textContent = 'Iniciando nueva partida...'; gameRunning = true; resetBall(); gameLoop(); } else { resetBall(); statusElement.textContent = 'Juego Reiniciado'; setTimeout(() => { if (gameRunning) statusElement.textContent = handDetected ? '¡Sigue jugando!' : 'Mueve tu mano derecha'; }, 1500); } }
+        restartBtn.addEventListener('click', restartGame);
+        function adaptGameSize() { /* ... (Sin Cambios) */ if (videoElement.videoWidth > 0 && videoElement.videoHeight > 0) { gameWidth = videoElement.videoWidth; gameHeight = videoElement.videoHeight; canvasElement.width = gameWidth; canvasElement.height = gameHeight; goalTopY = gameHeight * GOAL_TOP_Y_PERCENT; goalHeight = gameHeight * GOAL_HEIGHT_PERCENT; document.querySelectorAll('.goal-visual.top-post').forEach(el => el.style.top = `${GOAL_TOP_Y_PERCENT * 100}%`); document.querySelectorAll('.goal-visual.bottom-post').forEach(el => el.style.top = `${(GOAL_TOP_Y_PERCENT + GOAL_HEIGHT_PERCENT) * 100}%`); paddle.x = gameWidth - paddle.width - 15; console.log(`Canvas adaptado a video: ${gameWidth}x${gameHeight}`); } else { console.warn("Intentando adaptar tamaño sin dimensiones de video válidas."); } }
+        function startGameOnceReady() { /* ... (Sin Cambios) */ if (gameRunning || videoElement.videoWidth === 0) return; adaptGameSize(); ball.speed = INITIAL_BALL_SPEED; lastSpeedIncreaseTime = performance.now(); console.log(`Juego iniciado. Goal Y: ${goalTopY.toFixed(0)} to ${(goalTopY + goalHeight).toFixed(0)}`); gameRunning = true; playerScore = 0; opponentScore = 0; updateScoreDisplay(); resetBall(); gameLoop(); }
+
+        function gameLoop() {
+             if (!gameRunning) { if (animationFrameIdGame) cancelAnimationFrame(animationFrameIdGame); animationFrameIdGame = null; return; }
+
+             // Incremento Velocidad
+             const currentTime = performance.now();
+             if (currentTime - lastSpeedIncreaseTime > SPEED_INCREASE_INTERVAL) { if (ball.speed < MAX_BALL_SPEED) { const oldSpeed = ball.speed; ball.speed += BALL_SPEED_INCREMENT; ball.speed = Math.min(ball.speed, MAX_BALL_SPEED); const magnitude = Math.sqrt(ball.velocityX * ball.velocityX + ball.velocityY * ball.velocityY); if (magnitude > 0) { const ratio = ball.speed / magnitude; ball.velocityX *= ratio; ball.velocityY *= ratio; } else { let angle = (Math.random() - 0.5) * Math.PI; ball.velocityX = Math.cos(angle) * ball.speed; ball.velocityY = Math.sin(angle) * ball.speed; } lastSpeedIncreaseTime = currentTime; } }
+
+             // Actualizar Posición Bola
+             ball.x += ball.velocityX; ball.y += ball.velocityY;
+
+             // Colisiones
+             if ((ball.y - ball.radius < 0 && ball.velocityY < 0) || (ball.y + ball.radius > gameHeight && ball.velocityY > 0)) { ball.velocityY = -ball.velocityY; ball.y = Math.max(ball.radius, Math.min(gameHeight - ball.radius, ball.y)); }
+             if (ball.velocityX > 0 && ball.x + ball.radius > paddle.x && ball.x - ball.radius < paddle.x + paddle.width && ball.y + ball.radius > paddle.y && ball.y - ball.radius < paddle.y + paddle.height) { let collidePoint = (ball.y - (paddle.y + paddle.height / 2)) / (paddle.height / 2); let angleRad = collidePoint * (Math.PI / 4); ball.velocityX = -ball.speed * Math.cos(angleRad); ball.velocityY = ball.speed * Math.sin(angleRad); ball.x = paddle.x - ball.radius - 1; }
+             if (ball.velocityX < 0 && ball.x - ball.radius < 0) { if (ball.y > goalTopY && ball.y < goalTopY + goalHeight) { handleGoal('player'); } else { ball.velocityX = -ball.velocityX; ball.x = ball.radius; } }
+             else if (ball.velocityX > 0 && ball.x + ball.radius > gameWidth) { if (ball.y > goalTopY && ball.y < goalTopY + goalHeight) { handleGoal('opponent'); } else { ball.velocityX = -ball.velocityX; ball.x = gameWidth - ball.radius; } }
+
+            // Dibujar
+            canvasCtx.clearRect(0, 0, gameWidth, gameHeight);
+            canvasCtx.fillStyle = paddle.color; canvasCtx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+            canvasCtx.fillStyle = ball.color; canvasCtx.beginPath(); canvasCtx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2); canvasCtx.fill();
+
+             // Indicador Mano No Detectada (en canvas)
+             if (gameRunning && !handDetected && (statusElement.textContent.includes('jugando') || statusElement.textContent.includes('Mueve'))) { canvasCtx.fillStyle = 'rgba(255, 100, 100, 0.8)'; canvasCtx.font = 'bold 16px Arial'; canvasCtx.textAlign = 'center'; canvasCtx.fillText('MANO DERECHA NO DETECTADA', gameWidth / 2, gameHeight - 20); }
+             else if (gameRunning && handDetected && statusElement.textContent.includes('Mueve tu mano')) { statusElement.textContent = '¡Sigue jugando!'; }
+
+            animationFrameIdGame = requestAnimationFrame(gameLoop);
+        }
+
+        // --- Inicio y Limpieza ---
+        statusElement.textContent = 'Iniciando cámara...';
+        camera.start()
+            .then(() => { console.log("Cámara iniciada."); statusElement.textContent = 'Cámara lista. Esperando detección...'; })
+            .catch(err => { console.error("Error al iniciar la cámara:", err); statusElement.textContent = `Error cámara: ${err.message}`; loadingIndicator.textContent = `Error cámara: ${err.message}`; loadingIndicator.style.backgroundColor = "rgba(220, 53, 69, 0.9)"; });
+         window.addEventListener('beforeunload', () => { gameRunning = false; if (animationFrameIdGame) cancelAnimationFrame(animationFrameIdGame); if (videoElement?.srcObject) { videoElement.srcObject.getTracks().forEach(track => track.stop()); videoElement.srcObject = null; } if (pose?.close) { pose.close(); } });
+         videoElement.addEventListener('resize', adaptGameSize);
+
+    </script>
+</body>
+</html>
