@@ -15,7 +15,7 @@ Este proyecto es un juego web simple inspirado en Pong, donde controlas la pala 
 Puedes probar la demo en vivo aquí:
 
 *   **[Demo - Jugar Ahora](https://soyunomas.github.io/mediapipe-hand-pong/index.html)**
-*   
+    
 ## ✨ Características Principales
 
 *   **🖐️ Control por Gestos:** Mueve la pala derecha usando tu mano derecha, detectada vía webcam.
